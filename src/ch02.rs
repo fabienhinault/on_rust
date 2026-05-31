@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::rc::Rc;
     use std::sync::Mutex;
 
@@ -124,15 +124,57 @@ mod test {
         assert_eq!(addx(3, false), 103);
     }
 
-    fn make_dbms(data: HashMap<String, String>) -> impl Fn(String) -> Option<String> {
-        move |key| data.get(&key).map(|s| s.clone())
+    fn make_dbms(
+        data: HashMap<String, String>,
+    ) -> (
+        impl Fn(String) -> Option<String>,
+        impl FnMut(String, String) -> Option<String>,
+        impl FnMut(String) -> Option<String>,
+    ) {
+        let rc_mutex_data = Rc::new(Mutex::new(data));
+        let rc_mutex_data_clone = rc_mutex_data.clone();
+        let rc_mutex_data_clone2 = rc_mutex_data.clone();
+        (
+            move |key| rc_mutex_data.lock().unwrap().get(&key).map(|s| s.clone()),
+            move |key, val| rc_mutex_data_clone.lock().unwrap().insert(key, val),
+            move |key| rc_mutex_data_clone2.lock().unwrap().remove(&key),
+        )
     }
+
     #[test]
     fn test_dbms() {
-        let cities = make_dbms(HashMap::from_iter([
+        let mut cities = make_dbms(HashMap::from_iter([
             ("Boston".to_owned(), "US".to_owned()),
             ("Paris".to_owned(), "France".to_owned()),
         ]));
-        assert_eq!(cities("Paris".to_owned()), Some("France".to_owned()));
+        assert_eq!(cities.0("Paris".to_owned()), Some("France".to_owned()));
+        assert_eq!(cities.1("London".to_owned(), "England".to_owned()), None);
+        assert_eq!(cities.0("London".to_owned()), Some("England".to_owned()));
+        assert_eq!(cities.2("London".to_owned()), Some("England".to_owned()));
+        assert_eq!(cities.0("London".to_owned()), None);
+    }
+
+    // 2.7 Local Functions
+
+    fn count_instances(obj: &str, lsts: Vec<Vec<&str>>) -> Vec<usize> {
+        fn instances_in(lst: Vec<&str>) {
+            lst.iter().fold()
+        }
+    }
+
+    #[test]
+    fn test_count_instances() {
+        assert_eq!(
+            count_instances(
+                "a",
+                vec![
+                    vec!["a", "b", "c"],
+                    vec!["d", "a", "r", "p", "a"],
+                    vec!["d", "a", "r",],
+                    vec!["a", "a"],
+                ]
+            ),
+            vec![1, 2, 1, 2]
+        );
     }
 }
